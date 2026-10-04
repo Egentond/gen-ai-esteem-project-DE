@@ -45,6 +45,29 @@ The service role key is only used on the server (in the Server Action) and never
 
 In production, if the Supabase variables are missing the form shows an error rather than silently dropping applications.
 
+## Loopedy Match (class prototype, first working slice)
+
+A founder fills in the application at **/match** and gets up to three non-competing partner brands, each with reasons and a suggested collab. They can mark each one Interested or Skip.
+
+How it works (`src/lib/matching/`):
+
+1. **Thin-input rule.** Very short or "everyone" style customer descriptions get a request for more detail. No model call.
+2. **Profile.** The model turns the application into a short profile and can also say there isn't enough detail.
+3. **Rules filter.** Removes your own brand, brands in the same category and big size gaps.
+4. **Ranking.** The model rates every remaining brand (high, medium or low), flags competitors and has to quote both applications word for word in each reason.
+5. **Evidence check.** Reasons whose quotes don't appear in the real text are thrown out. Competitors and low fits are dropped and the top three are shown.
+
+The candidate pool is 15 made-up brands in `src/content/sample-brands.ts`. Interested/Skip choices save to the `match_feedback` table (see `supabase/schema.sql`), or print in the terminal if Supabase isn't set up.
+
+Set `ANTHROPIC_API_KEY` in `.env.local`, then:
+
+```bash
+npm run dev          # open http://localhost:3000/match (test cases are one click at the top)
+npm run test:slice   # runs the three test cases and writes docs/test-results.md
+```
+
+Known limitations are in `docs/first-working-slice.md`.
+
 ## Ideas for later
 
 - Email notification on each new application (e.g. Resend) inside `submitApplication`.
