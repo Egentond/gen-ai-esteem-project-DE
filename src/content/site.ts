@@ -16,6 +16,7 @@ export const nav = [
   { label: "How it works", href: "#how-it-works" },
   { label: "Collabs", href: "#collabs" },
   { label: "FAQ", href: "#faq" },
+  { label: "Try the matcher", href: "/match" },
 ];
 
 export const hero = {
