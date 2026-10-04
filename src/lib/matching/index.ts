@@ -1,6 +1,7 @@
 import { samplePool, type PoolBrand } from "@/content/sample-brands";
 import type Anthropic from "@anthropic-ai/sdk";
 import { getClient, profileBrand, rankCandidates, MODEL, type BrandProfile } from "./llm";
+import { WIZARD_LABEL, wizardOn, wizardProfile, wizardRank } from "./wizard";
 import { filterCandidates, quoteAppears, thinInputCheck, type FounderInput, type RemovedCandidate } from "./rules";
 
 export type Match = {
@@ -37,7 +38,7 @@ const fitRank = { high: 0, medium: 1, low: 2 } as const;
 export async function findMatches(
   founder: FounderInput,
   pool: PoolBrand[] = samplePool,
-  client: Anthropic | null = getClient(),
+  client: Anthropic | null = wizardOn() ? null : getClient(),
 ): Promise<MatchResult> {
   const started = Date.now();
 
@@ -45,14 +46,13 @@ export async function findMatches(
   const thin = thinInputCheck(founder);
   if (!thin.ok) return { status: "needs_detail", missing: thin.missing, caughtBy: "rules" };
 
+  // No client means Wizard of Oz mode: the two model steps are simulated, the rest is real.
   const ai = client;
-  if (!ai) {
-    return { status: "error", message: "Matching isn't switched on yet. Add ANTHROPIC_API_KEY to .env.local and restart" };
-  }
+  const modelLabel = ai ? MODEL : WIZARD_LABEL;
 
   try {
     // 2. Profile the founder's brand. The model can also say "not enough detail".
-    const profile = await profileBrand(ai, founder);
+    const profile = ai ? await profileBrand(ai, founder) : await wizardProfile(founder);
     if (!profile.enough_detail) {
       return { status: "needs_detail", missing: profile.missing.length ? profile.missing : ["More about who your customer is."], caughtBy: "model" };
     }
@@ -60,11 +60,11 @@ export async function findMatches(
     // 3. Rules remove own brand, same category and big size gaps.
     const { kept, removed: removedByRules } = filterCandidates(founder, pool);
     if (kept.length === 0) {
-      return { status: "ok", profile, matches: [], removedByRules, removedByModel: [], model: MODEL, ms: Date.now() - started };
+      return { status: "ok", profile, matches: [], removedByRules, removedByModel: [], model: modelLabel, ms: Date.now() - started };
     }
 
     // 4. Model rates every remaining candidate.
-    const ranked = await rankCandidates(ai, founder, profile, kept);
+    const ranked = ai ? await rankCandidates(ai, founder, profile, kept) : await wizardRank(founder, kept);
 
     // 5. Keep only non-competing, medium-or-better matches whose reasons quote real text.
     const byId = new Map(kept.map((c) => [c.id, c]));
@@ -109,7 +109,7 @@ export async function findMatches(
       matches: matches.slice(0, MAX_MATCHES),
       removedByRules,
       removedByModel,
-      model: MODEL,
+      model: modelLabel,
       ms: Date.now() - started,
     };
   } catch (err) {
