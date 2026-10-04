@@ -25,3 +25,17 @@ create index if not exists applications_category_idx on public.applications (cat
 -- Lock the table down. The site writes with the service role key (server-side only),
 -- which bypasses RLS, so no public policies are needed.
 alter table public.applications enable row level security;
+
+-- Loopedy Match (first working slice): founder's interested/skip choice on each suggested partner.
+create table if not exists public.match_feedback (
+  id             uuid primary key default gen_random_uuid(),
+  created_at     timestamptz not null default now(),
+  founder_email  text not null,
+  founder_brand  text not null,
+  partner_id     text not null,  -- id from the seeded pool for now
+  decision       text not null check (decision in ('interested', 'skip')),
+  fit            text not null   -- high | medium, as rated when shown
+);
+
+create index if not exists match_feedback_founder_idx on public.match_feedback (founder_email);
+alter table public.match_feedback enable row level security;
