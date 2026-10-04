@@ -57,9 +57,11 @@ How it works (`src/lib/matching/`):
 4. **Ranking.** The model rates every remaining brand (high, medium or low), flags competitors and has to quote both applications word for word in each reason.
 5. **Evidence check.** Reasons whose quotes don't appear in the real text are thrown out. Competitors and low fits are dropped and the top three are shown.
 
-The candidate pool is 15 made-up brands in `src/content/sample-brands.ts`. Interested/Skip choices save to the `match_feedback` table (see `supabase/schema.sql`), or print in the terminal if Supabase isn't set up.
+**Wizard of Oz mode.** With no `ANTHROPIC_API_KEY` set (or with `LOOPEDY_WIZARD=1`), steps 2 and 4 are simulated with keyword logic in `src/lib/matching/wizard.ts`, so the whole flow can be clicked through for free. Everything else is the real code. The results page footer says which mode ran.
 
-Set `ANTHROPIC_API_KEY` in `.env.local`, then:
+The candidate pool is 16 made-up brands in `src/content/sample-brands.ts`. Interested/Skip choices save to the `match_feedback` table (see `supabase/schema.sql`), or print in the terminal if Supabase isn't set up.
+
+To use the real model, set `ANTHROPIC_API_KEY` in `.env.local` (optional). Then:
 
 ```bash
 npm run dev          # open http://localhost:3000/match (test cases are one click at the top)

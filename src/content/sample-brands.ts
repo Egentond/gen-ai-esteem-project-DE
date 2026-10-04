@@ -166,6 +166,17 @@ export const samplePool: PoolBrand[] = [
     formats: ["Gift-with-purchase swap", "Co-branded bundle", "Joint giveaway"],
   },
   {
+    id: "gentle-wash",
+    brand_name: "Gentle Wash",
+    website: "https://gentlewash.example",
+    category: "Home & living",
+    monthly_orders: "500–2,000",
+    product: "Fragrance-free laundry detergent and wool dryer balls",
+    audience:
+      "Women in their 30s with sensitive, easily irritated skin who check every label and want fragrance-free products for the whole household. Premium price, lots of repeat buyers on subscription.",
+    formats: ["Email & SMS cross-sell", "Gift-with-purchase swap"],
+  },
+  {
     id: "fresh-face-co",
     brand_name: "Fresh Face Co",
     website: "https://freshface.example",
