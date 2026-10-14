@@ -2,13 +2,20 @@
 
 Loopedy matches small DTC brands with non-competing brands that already sell to the same customer, so they can run collabs (gift-with-purchase swaps, email cross-sells, joint giveaways) instead of both paying for ads to reach her.
 
-This repo holds the Loopedy landing page and the first working slice of **Loopedy Match**, the part that finds the partners. It's my semester project for ESTM 60244.
+This repo holds the first working slice of **Loopedy Match**, the part that finds the partners. It's my semester project for ESTM 60244.
 
-**Live demo:** [Try the Loopedy Match prototype](https://claude.ai/artifact/2Lc7H5mE5YNC6EGaevFbgf)
+## Try it
+
+**[Open the live prototype](https://claude.ai/artifact/2Lc7H5mE5YNC6EGaevFbgf)**. It runs in the browser, with nothing to install.
+
+1. The form opens with the **Clear fit** test case filled in. Press **Find my matches**.
+2. Watch the five steps run, then look at the three partner brands, the reasons behind each one and the suggested collab.
+3. Scroll to **Why other brands were left out** to see which brands the rules and the AI step removed, and why.
+4. Try the **Competitor trap** and **Thin input** test cases, or press **Try another brand** and describe a brand of your own.
 
 ## What the slice does
 
-A founder fills in the Loopedy application on the new /match page and gets back up to three partner brands that sell something different to the same kind of customer. Each match shows why the two brands fit, quoting both applications, plus a suggested collab format. The founder marks each one Interested or Skip and that choice is saved. That is the full loop from my problem framing, working end to end in the same Next.js app as the landing page.
+A founder fills in the Loopedy application on the match page and gets back up to three partner brands that sell something different to the same kind of customer. Each match shows why the two brands fit, quoting both applications, plus a suggested collab format. The founder marks each one Interested or Skip and that choice is saved. That is the full loop from my problem framing, working end to end in the same Next.js app as the landing page.
 
 Behind the form there are five steps. A simple rule catches applications that are too thin to match on. The model then builds a short profile of the brand and can also say there isn't enough detail. Plain rules remove the founder's own brand, brands in the same category and pairs with a big size gap. The model rates every brand left over, flags competitors and has to back each reason with exact quotes from both applications. Finally the code checks those quotes really appear in the text, drops anything that doesn't, and shows the top three. The pool is 16 sample brands I set up, some placed on purpose to trip it up.
 
@@ -16,7 +23,7 @@ Behind the form there are five steps. A simple rule catches applications that ar
 
 ## Three test cases
 
-All three are in the repo and run with `npm run test:slice`, which also writes the full output to docs/test-results.md. They're one click on the /match page too.
+All three are one click at the top of the live demo. They're also defined in `src/content/test-founders.ts`, with a runner in `scripts/test-slice.ts` that checks each one automatically.
 
 | Test | Input | Passes when | Result |
 | --- | --- | --- | --- |
@@ -43,57 +50,24 @@ These results are from Wizard of Oz mode, so tests 1 and 2 show the pipeline and
 
 I used Claude to lay out the job-to-be-done for this assignment and clean up and advise on code that built the slice described above. It helped me come up with useful test cases, and figure out possible edge cases that may come up in testing. Assisted in writing the code. The parts that need the most watching are the competitor check and how consistent the ratings are between runs.
 
-## Run it locally
+## Where things are in the code
 
-```bash
-npm install
-npm run dev
-```
+| What | Where |
+| --- | --- |
+| The five matching steps | `src/lib/matching/index.ts` |
+| Thin-input, category and size rules, and the quote check | `src/lib/matching/rules.ts` |
+| Prompts for the real model (steps 2 and 4) | `src/lib/matching/llm.ts` |
+| Wizard of Oz stand-in for steps 2 and 4 | `src/lib/matching/wizard.ts` |
+| The 16 sample partner brands | `src/content/sample-brands.ts` |
+| The three test cases | `src/content/test-founders.ts` |
+| Match page and results UI | `src/app/match/`, `src/components/match-client.tsx` |
+| Where Interested and Skip choices are stored | `supabase/schema.sql` (`match_feedback` table) |
 
-Open http://localhost:3000/match for the prototype (or use **Try the matcher** in the landing page menu). No keys are needed. To use the real model, add `ANTHROPIC_API_KEY` to `.env.local`.
+Built with Next.js (TypeScript), Tailwind CSS, Zod, Supabase and the Anthropic SDK. The repo also contains the Loopedy landing page, which collects brand applications.
 
-Interested and Skip choices save to the `match_feedback` table in Supabase (`supabase/schema.sql`), or print in the terminal if Supabase isn't set up.
+## What's next
 
-**Stack:** Next.js (App Router, TypeScript), Tailwind CSS v4, Zod, Supabase, Anthropic SDK.
+- Run steps 2 and 4 on the real model and compare its matches with the Wizard of Oz results on the same test cases.
+- Match real applications from Supabase instead of the sample pool.
+- Ask the partner brand too, and only share contact details when both say Interested.
 
-# The landing page
-
-The home page is the Loopedy landing page. Its main call to action is a brand application form that saves to Supabase. Until Supabase is set up, form submissions are printed in the terminal instead of saved.
-
-## Where things live
-
-| To change…                        | Edit                                   |
-| --------------------------------- | -------------------------------------- |
-| Any text on the page, FAQ, form dropdown options | `src/content/site.ts`   |
-| Colours and fonts                 | `src/app/globals.css` (`@theme` block) and `src/app/layout.tsx` |
-| Section order / add or remove a section | `src/app/page.tsx`               |
-| A section's layout                | `src/components/sections/*.tsx`        |
-| Form fields and validation        | `src/components/application-form.tsx`, `src/lib/application.ts` |
-| What happens on submit            | `src/app/actions.ts`                   |
-| Database table                    | `supabase/schema.sql`                  |
-
-Adding a form field: add it to the schema in `src/lib/application.ts`, to `formDataToApplication` in the same file, to the form component, and as a column in Supabase.
-
-## Set up Supabase
-
-1. Create a project at supabase.com.
-2. Open **SQL Editor**, paste in `supabase/schema.sql`, and run it.
-3. Copy `.env.example` to `.env.local` and fill in `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` (Project Settings → API).
-4. Restart `npm run dev`. New applications appear in **Table Editor → applications**. Use the `status` and `notes` columns to track matching.
-
-The service role key is only used on the server (in the Server Action) and never reaches the browser. Don't prefix it with `NEXT_PUBLIC_`.
-
-## Deploy to Vercel
-
-1. Push this folder to a GitHub repo.
-2. Import it at vercel.com/new (framework is detected automatically).
-3. Add the two environment variables under **Settings → Environment Variables**.
-4. Add your domain under **Settings → Domains**, and check `site.url` and `site.contactEmail` in `src/content/site.ts`.
-
-In production, if the Supabase variables are missing the form shows an error rather than silently dropping applications.
-
-## Ideas for later
-
-- Email notification on each new application (e.g. Resend) inside `submitApplication`.
-- Analytics: `@vercel/analytics` is a one-line add in `layout.tsx`.
-- The matching app itself (brand profiles, swipe-to-match, auto-intro emails) can grow in this same project under new routes like `src/app/(app)/…`, reusing the Supabase setup.
