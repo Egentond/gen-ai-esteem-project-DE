@@ -47,6 +47,8 @@ In production, if the Supabase variables are missing the form shows an error rat
 
 ## Loopedy Match (class prototype, first working slice)
 
+**Live demo:** [Try the Loopedy Match prototype](https://claude.ai/artifact/2Lc7H5mE5YNC6EGaevFbgf). It runs in Wizard of Oz mode with the same 16 sample brands and three test cases as `/match`.
+
 A founder fills in the application at **/match** and gets up to three non-competing partner brands, each with reasons and a suggested collab. They can mark each one Interested or Skip.
 
 How it works (`src/lib/matching/`):
