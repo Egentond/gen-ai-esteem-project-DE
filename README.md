@@ -8,51 +8,40 @@ This repo holds the Loopedy landing page and the first working slice of **Looped
 
 ## What the slice does
 
-A founder fills in a short application about their brand: what they sell, how many orders a month, which collab formats they'd do, and a few sentences about who their customer is. The slice reads that and comes back with up to three partner brands. Each match shows:
+A founder fills in the Loopedy application on the new /match page and gets back up to three partner brands that sell something different to the same kind of customer. Each match shows why the two brands fit, quoting both applications, plus a suggested collab format. The founder marks each one Interested or Skip and that choice is saved. That is the full loop from my problem framing, working end to end in the same Next.js app as the landing page.
 
-- why the two brands fit, quoting the founder's own words and the partner's own words side by side
-- how strong the fit is (strong or possible)
-- a suggested collab format, preferring one both brands said they'd do
-- Interested and Skip buttons, and the choice is saved
+Behind the form there are five steps. A simple rule catches applications that are too thin to match on. The model then builds a short profile of the brand and can also say there isn't enough detail. Plain rules remove the founder's own brand, brands in the same category and pairs with a big size gap. The model rates every brand left over, flags competitors and has to back each reason with exact quotes from both applications. Finally the code checks those quotes really appear in the text, drops anything that doesn't, and shows the top three. The pool is 16 sample brands I set up, some placed on purpose to trip it up.
 
-Under the matches it lists every brand that was left out and why, so you can see the competitors and poor fits it caught.
+**Wizard of Oz mode.** The prototype runs without an API key. In that mode the two AI steps are faked with simple keyword matching and a list of product words per category, so the flow can be clicked through for free. Everything else is the real code, and adding a key swaps in the real model with no other changes. The results page says which mode ran.
 
-If the application is too vague to match on (for example "we sell cool stuff to everyone"), it asks for more detail instead of making up matches.
+## Three test cases
 
-## How it works
-
-The matching runs in five steps (`src/lib/matching/`). Rules do the parts a rule can be sure about. The AI does the parts that need reading plain English.
-
-1. **Enough detail?** (rule) Very short or "everyone" style descriptions get a request for more detail. Nothing else runs.
-2. **Read the brand.** (AI) Turns the application into a short profile: what they sell, who the customer is, price level and what the customer cares about.
-3. **Rule out the obvious.** (rule) Removes the founder's own brand, brands in the same category and brands much bigger or smaller than them.
-4. **Rate every remaining brand.** (AI) Flags competitors that describe themselves in different words or picked a different category, rates the customer overlap and has to back each reason with exact quotes from both applications.
-5. **Check the evidence.** (rule) Throws out any reason whose quotes don't really appear in the applications, drops competitors and low fits, and shows the top three.
-
-**Wizard of Oz mode.** The prototype doesn't need to call a real model. With no `ANTHROPIC_API_KEY` set, steps 2 and 4 are simulated with keyword matching (`src/lib/matching/wizard.ts`), so the whole flow can be clicked through for free. Steps 1, 3 and 5 are the real code either way. Adding a key swaps in Claude for steps 2 and 4 with no other changes. The results page says which mode ran.
-
-The pool of partner brands is 16 made-up brands in `src/content/sample-brands.ts`, some placed on purpose to trip the matcher up.
-
-## Test cases
-
-Defined in `src/content/test-founders.ts`. Each one is a button at the top of `/match` and in the live demo.
+All three are in the repo and run with `npm run test:slice`, which also writes the full output to docs/test-results.md. They're one click on the /match page too.
 
 | Test | Input | Passes when | Result |
 | --- | --- | --- | --- |
-| Clear fit | Clean skincare brand whose customer goes to Pilates and yoga | Studio Form (Pilates apparel) is matched. Dorm Glow (student candles) and the skincare brands are not. | Pass |
-| Competitor trap | Fragrance-free skincare for sensitive faces | Barrier Lab is kept out. It sells sensitive-skin serums but filed under a different category in different words. | Pass. Matched Gentle Wash, a fragrance-free laundry brand, instead. |
-| Thin input | "we sell cool stuff to everyone" | It asks for more detail and shows no matches. | Pass. Stopped at step 1. |
+| 1. Clear fit | Clean skincare brand whose customer goes to Pilates and yoga | Studio Form (Pilates apparel) is matched. Dorm Glow (student candles) and both skincare brands are not. | Pass. Matched Studio Form, Stillwater Tea and Fine Line. |
+| 2. Competitor trap | Fragrance-free skincare for sensitive faces | Barrier Lab is kept out. It sells sensitive skin serums but filed under a different category in different words, so only the model can catch it. | Pass. Barrier Lab flagged as a competitor. Matched Gentle Wash instead. |
+| 3. Thin input | "we sell cool stuff to everyone" | The app asks for more detail and shows no matches. | Pass. Caught by the rule before any model call. |
 
-Run them all with `npm run test:slice`. It prints pass or fail for each and writes the full output to `docs/test-results.md`.
+These results are from Wizard of Oz mode, so tests 1 and 2 show the pipeline and rules working around a simulated AI step. I also checked the filtering code with a fake model response. A competitor flagged by the model was removed, I threw out a reason with a made up quote, a low fit was dropped and I ignored an invented brand.
 
 ## Known limitations
 
-- In Wizard of Oz mode the matching is keyword overlap. Two brands only match if they use the same words, which is the problem the real model is meant to solve.
-- The partner brands are made up. Real applications aren't matched against each other yet.
-- It's one-sided. The partner brand is never asked, so there's no mutual opt-in yet.
-- Every candidate goes into one AI prompt. Fine for 16 brands but not for hundreds.
+- The AI step is simulated by default. Keyword matching only links brands that use the same words, which is the exact problem the real model is meant to solve.
+- The 16 candidate brands are made up and live in the code. Real applications in Supabase aren't matched against each other yet.
+- Every candidate goes into one ranking prompt. Fine for 16 brands, but slow and expensive at a few hundred, so it would need a cheaper pre-filter first.
+- It's one-sided. The founder sees partners but the partner is never asked, so there's no mutual opt-in or contact sharing yet.
+- The model isn't deterministic, so the same application can get slightly different matches between runs. I haven't measured how much yet.
+- The category rule only catches exact matches. A competitor in a neighbouring category, or one that picks Other, relies entirely on the model.
+- The quote check proves the words exist, not that the argument is good. A reason can quote real text and still be weak.
+- The thin input rule is just a word count and a list of vague words. A long but empty description gets past it and relies on the model.
+- The size rule drops pairs more than two order buckets apart, even though a per-customer fee could make some of those work.
+- There are no accounts, so feedback is tied to an email nobody has verified.
 
-The full list is in `docs/first-working-slice.md`.
+## AI use record
+
+I used Claude to lay out the job-to-be-done for this assignment and clean up and advise on code that built the slice described above. It helped me come up with useful test cases, and figure out possible edge cases that may come up in testing. Assisted in writing the code. The parts that need the most watching are the competitor check and how consistent the ratings are between runs.
 
 ## Run it locally
 
