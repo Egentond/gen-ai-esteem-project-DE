@@ -1,8 +1,58 @@
-# Loopedy — landing page
+# Loopedy Match
 
-Landing page for Loopedy, the brand co-op that matches non-competing DTC brands with overlapping audiences. The main call to action is a brand application form that saves to Supabase.
+Loopedy matches small DTC brands with non-competing brands that already sell to the same customer, so they can run collabs (gift-with-purchase swaps, email cross-sells, joint giveaways) instead of both paying for ads to reach her.
 
-**Stack:** Next.js (App Router, TypeScript) · Tailwind CSS v4 · Zod · Supabase · deploy on Vercel.
+This repo holds the Loopedy landing page and the first working slice of **Loopedy Match**, the part that finds the partners. It's my semester project for ESTM 60244.
+
+**Live demo:** [Try the Loopedy Match prototype](https://claude.ai/artifact/2Lc7H5mE5YNC6EGaevFbgf)
+
+## What the slice does
+
+A founder fills in a short application about their brand: what they sell, how many orders a month, which collab formats they'd do, and a few sentences about who their customer is. The slice reads that and comes back with up to three partner brands. Each match shows:
+
+- why the two brands fit, quoting the founder's own words and the partner's own words side by side
+- how strong the fit is (strong or possible)
+- a suggested collab format, preferring one both brands said they'd do
+- Interested and Skip buttons, and the choice is saved
+
+Under the matches it lists every brand that was left out and why, so you can see the competitors and poor fits it caught.
+
+If the application is too vague to match on (for example "we sell cool stuff to everyone"), it asks for more detail instead of making up matches.
+
+## How it works
+
+The matching runs in five steps (`src/lib/matching/`). Rules do the parts a rule can be sure about. The AI does the parts that need reading plain English.
+
+1. **Enough detail?** (rule) Very short or "everyone" style descriptions get a request for more detail. Nothing else runs.
+2. **Read the brand.** (AI) Turns the application into a short profile: what they sell, who the customer is, price level and what the customer cares about.
+3. **Rule out the obvious.** (rule) Removes the founder's own brand, brands in the same category and brands much bigger or smaller than them.
+4. **Rate every remaining brand.** (AI) Flags competitors that describe themselves in different words or picked a different category, rates the customer overlap and has to back each reason with exact quotes from both applications.
+5. **Check the evidence.** (rule) Throws out any reason whose quotes don't really appear in the applications, drops competitors and low fits, and shows the top three.
+
+**Wizard of Oz mode.** The prototype doesn't need to call a real model. With no `ANTHROPIC_API_KEY` set, steps 2 and 4 are simulated with keyword matching (`src/lib/matching/wizard.ts`), so the whole flow can be clicked through for free. Steps 1, 3 and 5 are the real code either way. Adding a key swaps in Claude for steps 2 and 4 with no other changes. The results page says which mode ran.
+
+The pool of partner brands is 16 made-up brands in `src/content/sample-brands.ts`, some placed on purpose to trip the matcher up.
+
+## Test cases
+
+Defined in `src/content/test-founders.ts`. Each one is a button at the top of `/match` and in the live demo.
+
+| Test | Input | Passes when | Result |
+| --- | --- | --- | --- |
+| Clear fit | Clean skincare brand whose customer goes to Pilates and yoga | Studio Form (Pilates apparel) is matched. Dorm Glow (student candles) and the skincare brands are not. | Pass |
+| Competitor trap | Fragrance-free skincare for sensitive faces | Barrier Lab is kept out. It sells sensitive-skin serums but filed under a different category in different words. | Pass. Matched Gentle Wash, a fragrance-free laundry brand, instead. |
+| Thin input | "we sell cool stuff to everyone" | It asks for more detail and shows no matches. | Pass. Stopped at step 1. |
+
+Run them all with `npm run test:slice`. It prints pass or fail for each and writes the full output to `docs/test-results.md`.
+
+## Known limitations
+
+- In Wizard of Oz mode the matching is keyword overlap. Two brands only match if they use the same words, which is the problem the real model is meant to solve.
+- The partner brands are made up. Real applications aren't matched against each other yet.
+- It's one-sided. The partner brand is never asked, so there's no mutual opt-in yet.
+- Every candidate goes into one AI prompt. Fine for 16 brands but not for hundreds.
+
+The full list is in `docs/first-working-slice.md`.
 
 ## Run it locally
 
@@ -11,7 +61,15 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:3000. Until Supabase is set up, form submissions are printed in the terminal instead of saved.
+Open http://localhost:3000/match for the prototype (or use **Try the matcher** in the landing page menu). No keys are needed. To use the real model, add `ANTHROPIC_API_KEY` to `.env.local`.
+
+Interested and Skip choices save to the `match_feedback` table in Supabase (`supabase/schema.sql`), or print in the terminal if Supabase isn't set up.
+
+**Stack:** Next.js (App Router, TypeScript), Tailwind CSS v4, Zod, Supabase, Anthropic SDK.
+
+# The landing page
+
+The home page is the Loopedy landing page. Its main call to action is a brand application form that saves to Supabase. Until Supabase is set up, form submissions are printed in the terminal instead of saved.
 
 ## Where things live
 
@@ -44,33 +102,6 @@ The service role key is only used on the server (in the Server Action) and never
 4. Add your domain under **Settings → Domains**, and check `site.url` and `site.contactEmail` in `src/content/site.ts`.
 
 In production, if the Supabase variables are missing the form shows an error rather than silently dropping applications.
-
-## Loopedy Match (class prototype, first working slice)
-
-**Live demo:** [Try the Loopedy Match prototype](https://claude.ai/artifact/2Lc7H5mE5YNC6EGaevFbgf). It runs in Wizard of Oz mode with the same 16 sample brands and three test cases as `/match`.
-
-A founder fills in the application at **/match** and gets up to three non-competing partner brands, each with reasons and a suggested collab. They can mark each one Interested or Skip.
-
-How it works (`src/lib/matching/`):
-
-1. **Thin-input rule.** Very short or "everyone" style customer descriptions get a request for more detail. No model call.
-2. **Profile.** The model turns the application into a short profile and can also say there isn't enough detail.
-3. **Rules filter.** Removes your own brand, brands in the same category and big size gaps.
-4. **Ranking.** The model rates every remaining brand (high, medium or low), flags competitors and has to quote both applications word for word in each reason.
-5. **Evidence check.** Reasons whose quotes don't appear in the real text are thrown out. Competitors and low fits are dropped and the top three are shown.
-
-**Wizard of Oz mode.** With no `ANTHROPIC_API_KEY` set (or with `LOOPEDY_WIZARD=1`), steps 2 and 4 are simulated with keyword logic in `src/lib/matching/wizard.ts`, so the whole flow can be clicked through for free. Everything else is the real code. The results page footer says which mode ran.
-
-The candidate pool is 16 made-up brands in `src/content/sample-brands.ts`. Interested/Skip choices save to the `match_feedback` table (see `supabase/schema.sql`), or print in the terminal if Supabase isn't set up.
-
-To use the real model, set `ANTHROPIC_API_KEY` in `.env.local` (optional). Then:
-
-```bash
-npm run dev          # open http://localhost:3000/match (test cases are one click at the top)
-npm run test:slice   # runs the three test cases and writes docs/test-results.md
-```
-
-Known limitations are in `docs/first-working-slice.md`.
 
 ## Ideas for later
 
